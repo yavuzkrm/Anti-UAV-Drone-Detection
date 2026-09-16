@@ -31,7 +31,11 @@ def videotoimage(video_path):
             if not success:
                 break
             params = [cv2.IMWRITE_PNG_COMPRESSION, 1]
-            cv2.imwrite(os.path.join(video_dir, f"{video_class}I{str(frame_count).zfill(4)}.png"), frame, params)
+            img = os.path.join(video_dir, f"{video_class}I{str(frame_count).zfill(4)}.png")
+            if os.path.exists(img):
+                frame_count += 1
+                continue
+            cv2.imwrite(img, frame, params)
             frame_count += 1
 
         finish_time = datetime.now()

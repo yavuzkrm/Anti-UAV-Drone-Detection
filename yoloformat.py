@@ -26,7 +26,7 @@ def savetxt(video_path):
 
             norm_str = yolonormalization(gt_data_item, label_class)
 
-            label_dir = os.path.join(BASE_LABEL_DIR, session_id)
+            label_dir = os.path.join(BASE_LABEL_DIR, session_id, label_class)
             
             if not os.path.exists(label_dir):
                 os.makedirs(label_dir)
