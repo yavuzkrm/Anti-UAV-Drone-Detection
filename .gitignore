@@ -1,0 +1,17 @@
+# Data ve labellar - repo'da olmasın
+datasets/
+*.png
+*.jpg
+*.mp4
+*.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
