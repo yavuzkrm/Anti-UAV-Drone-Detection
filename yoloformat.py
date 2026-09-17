@@ -1,15 +1,54 @@
+"""
+JSON to YOLO Format Conversion Module
+
+Converts Anti-UAV dataset JSON annotations to YOLO format.
+Normalizes bounding box coordinates based on image dimensions.
+
+YOLO Format:
+    class_id center_x_normalized center_y_normalized width_normalized height_normalized
+    Values are normalized to 0-1 range based on image dimensions
+
+Example:
+    python yoloformat.py
+    
+    Reads from: ./datasets/videos/train_videos/*.json
+    Writes to:  ./datasets/labels/train/*.txt
+"""
+
 import os
 import json
 from config import train_or_val_folder, video_folder
 
+# Base output directory for YOLO labels
 BASE_LABEL_DIR = f"./datasets/labels/{train_or_val_folder}"
 
+# Image dimensions for infrared and visible camera feeds
+# Used to normalize bounding box coordinates (pixel → 0-1 range)
 IMAGE_DIMENSIONS = {
-    "infrared": [640, 512],
-    "visible": [1920, 1080]
+    "infrared": [640, 512],      # Infrared: 640x512
+    "visible": [1920, 1080]       # Visible: 1920x1080
 }
 
 def savetxt(video_path):
+    """
+    Convert JSON annotations to YOLO format and save as text files.
+    
+    Args:
+        video_path (str): Full path to JSON annotation file
+        
+    Process:
+        1. Load JSON with ground truth rectangles (gt_rect)
+        2. For each frame:
+           - If no drone: create empty .txt file
+           - If drone present: normalize coordinates and save to .txt
+        3. Create one .txt file per frame with matching PNG filename
+        
+    File Structure:
+        Input:  videos/train/video.json
+        Output: labels/train/infrared/infraredI0000.txt
+                labels/train/infrared/infraredI0001.txt
+                ...
+    """
     try:
         with open(video_path, 'r') as file:
             data = json.load(file)
@@ -43,33 +82,72 @@ def savetxt(video_path):
 
 
 def yolonormalization(gt_data_item, label_class):
-    class_num = 0
+    """
+    Normalize bounding box coordinates from pixel to YOLO format (0-1 range).
+    
+    Args:
+        gt_data_item (list): [x, y, width, height] in pixel coordinates
+        label_class (str): Camera type - 'infrared' or 'visible'
+        
+    Returns:
+        str: YOLO format string
+        
+    Math:
+        Input: [x_pixel, y_pixel, width_pixel, height_pixel]
+        
+        center_x_norm = (x_pixel + width_pixel/2) / image_width
+        center_y_norm = (y_pixel + height_pixel/2) / image_height
+        width_norm = width_pixel / image_width
+        height_norm = height_pixel / image_height
+        
+        Output: "0 center_x center_y width height"
+    """
+    class_num = 0  # Single class: drone
     
     image_width, image_height = IMAGE_DIMENSIONS[label_class]
-
+    
+    # Calculate center point and normalize
     center_x_normalized = (gt_data_item[0] + gt_data_item[2]/2) / image_width
     center_y_normalized = (gt_data_item[1] + gt_data_item[3]/2) / image_height
+    # Normalize dimensions
     width_normalized = gt_data_item[2] / image_width
     height_normalized = gt_data_item[3] / image_height
-
+    
     norm_str = f"{class_num} {center_x_normalized} {center_y_normalized} {width_normalized} {height_normalized}\n"
-
+    
     return norm_str
 
 def get_all_dir(root_dir):
+    """
+    Recursively find all JSON annotation files.
+    
+    Args:
+        root_dir (str): Starting directory path
+        
+    Returns:
+        list: Full paths to all .json files found
+    """
     video_pathes = []
     for dir in os.listdir(root_dir):
         dir = os.path.join(root_dir, dir)
         if os.path.isdir(dir):
+            # Recursively search subdirectories
             video_pathes.extend(get_all_dir(dir))
+        # Check if this is a JSON annotation file
         if dir[-5:] == '.json':
             video_pathes.append(dir)
     return video_pathes
 
-root_dir = f"./datasets/videos/{video_folder}"
-video_pathes = get_all_dir(root_dir)
-
-for video_path in video_pathes:
-    savetxt(video_path)
-
-print("Done!!")
+# Main execution
+if __name__ == '__main__':
+    # Find all JSON annotation files in the configured folder
+    root_dir = f"./datasets/videos/{video_folder}"
+    video_pathes = get_all_dir(root_dir)
+    
+    print(f"Found {len(video_pathes)} annotation file(s)")
+    
+    # Convert each JSON file to YOLO format
+    for video_path in video_pathes:
+        savetxt(video_path)
+    
+    print("Done!!")
