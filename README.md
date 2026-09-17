@@ -74,7 +74,7 @@ Evaluates model on test set, generates predictions.
 | **Precision** | 84% |
 | **Recall** | 80% |
 
-**Data**: 5 videos (10,000 frames)  
+**Data**: 10 videos (10,000 frames)  
 **Status**: Proof-of-concept validation ✓
 
 ## Installation
