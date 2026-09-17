@@ -1,8 +1,9 @@
 import os
 import cv2
 from datetime import datetime
+from config import train_or_val_folder, video_folder
 
-BASE_VIDEO_DIR = './datasets/images/train'
+BASE_VIDEO_DIR = f"./datasets/images/{train_or_val_folder}"
 
 def videotoimage(video_path):
     try:
@@ -55,7 +56,7 @@ def get_all_dir(root_dir):
             video_pathes.append(dir)
     return video_pathes
 
-root_dir = './datasets/videos/train_videos'
+root_dir = f"./datasets/videos/{video_folder}"
 video_pathes = get_all_dir(root_dir)
 
 for video_path in video_pathes:

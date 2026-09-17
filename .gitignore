@@ -5,6 +5,11 @@ datasets/
 *.mp4
 *.json
 
+# Model outputs
+runs/
+weights/
+*.pt
+
 # Python
 __pycache__/
 *.pyc

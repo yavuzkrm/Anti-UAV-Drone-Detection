@@ -1,7 +1,9 @@
 import os
 import json
+from config import train_or_val_folder, video_folder
 
-BASE_LABEL_DIR = './datasets/labels/train'
+BASE_LABEL_DIR = f"./datasets/labels/{train_or_val_folder}"
+
 IMAGE_DIMENSIONS = {
     "infrared": [640, 512],
     "visible": [1920, 1080]
@@ -22,9 +24,9 @@ def savetxt(video_path):
         for frame_idx, gt_data_item in enumerate(gt_data):
 
             if not gt_data_item:
-                continue
-
-            norm_str = yolonormalization(gt_data_item, label_class)
+                norm_str = ""
+            else:
+                norm_str = yolonormalization(gt_data_item, label_class)
 
             label_dir = os.path.join(BASE_LABEL_DIR, session_id, label_class)
             
@@ -42,7 +44,7 @@ def savetxt(video_path):
 
 def yolonormalization(gt_data_item, label_class):
     class_num = 0
-
+    
     image_width, image_height = IMAGE_DIMENSIONS[label_class]
 
     center_x_normalized = (gt_data_item[0] + gt_data_item[2]/2) / image_width
@@ -64,7 +66,7 @@ def get_all_dir(root_dir):
             video_pathes.append(dir)
     return video_pathes
 
-root_dir = './datasets/videos/train_videos'
+root_dir = f"./datasets/videos/{video_folder}"
 video_pathes = get_all_dir(root_dir)
 
 for video_path in video_pathes:
