@@ -40,10 +40,10 @@ def videotoimage(video_path):
 
         cap = cv2.VideoCapture(video_path)
         video_class = os.path.basename(video_path).split('.')[0]
-        # video_dir = os.path.join(os.path.dirname(video_path), video_class) # Aynı dosyaların içine koymak için
+        # video_dir = os.path.join(os.path.dirname(video_path), video_class) # To put them in the same file
         
-        # Belirtilen klasöre koymak için
-        video_path = video_path.replace('\\', '/') # get_all_dir() içinde windows yol eklerken '\' ekler. Bölme yaparken hata almamak için.
+        # To place it in the specified folder
+        video_path = video_path.replace('\\', '/')
         parts = video_path.split('/')
         session_id = parts[4] 
 
