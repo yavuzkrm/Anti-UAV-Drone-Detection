@@ -84,7 +84,7 @@ Evaluates model on test set, generates predictions.
 pip install opencv-python ultralytics torch torchvision
 
 # Setup
-git clone <repository>
+git clone https://github.com/yavuzkrm/Anti-UAV-Drone-Detection
 cd Anti-UAV-Drone-Detection
 ```
 
