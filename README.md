@@ -101,6 +101,7 @@ video_folder = "train_videos"
 path: ./datasets
 train: images/train
 val: images/val
+test: images/test
 nc: 1
 names: ['drone']
 ```
