@@ -40,15 +40,15 @@ def videotoimage(video_path):
 
         cap = cv2.VideoCapture(video_path)
         video_class = os.path.basename(video_path).split('.')[0]
-        # video_dir = os.path.join(os.path.dirname(video_path), video_class) # To put them in the same file
+        # video_dir = os.path.join(os.path.dirname(video_path), video_class) # Aynı dosyaların içine koymak için
         
-        # To place it in the specified folder
-        video_path = video_path.replace('\\', '/')
+        # Belirtilen klasöre koymak için
+        video_path = video_path.replace('\\', '/') # get_all_dir() içinde windows yol eklerken '\' ekler. Bölme yaparken hata almamak için.
         parts = video_path.split('/')
-        session_id = parts[4] 
+        session_id = parts[4]
 
 
-        video_dir = os.path.join(BASE_VIDEO_DIR, session_id, video_class)
+        video_dir = os.path.join(BASE_VIDEO_DIR, video_class)
 
         if not os.path.exists(video_dir):
             os.makedirs(video_dir)
@@ -58,7 +58,7 @@ def videotoimage(video_path):
             if not success:
                 break
             params = [cv2.IMWRITE_PNG_COMPRESSION, 1]
-            img = os.path.join(video_dir, f"{video_class}I{str(frame_count).zfill(4)}.png")
+            img = os.path.join(video_dir, f"{session_id}_{video_class}I{str(frame_count).zfill(4)}.png")
             if os.path.exists(img):
                 frame_count += 1
                 continue
