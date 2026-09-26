@@ -67,12 +67,12 @@ def savetxt(video_path):
             else:
                 norm_str = yolonormalization(gt_data_item, label_class)
 
-            label_dir = os.path.join(BASE_LABEL_DIR, session_id, label_class)
+            label_dir = os.path.join(BASE_LABEL_DIR, label_class)
             
             if not os.path.exists(label_dir):
                 os.makedirs(label_dir)
 
-            frame_name = f"{label_class}I{str(frame_idx).zfill(4)}"
+            frame_name = f"{session_id}_{label_class}I{str(frame_idx).zfill(4)}"
             txt_path = os.path.join(label_dir, f"{frame_name}.txt")
         
             with open(txt_path, 'w') as txtfile:
