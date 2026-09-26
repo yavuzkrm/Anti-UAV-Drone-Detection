@@ -1,40 +1,60 @@
-"""
-YOLOv8 Model Training Script
-
-Trains a YOLOv8 nano model on the Anti-UAV drone detection dataset.
-
-Usage:
-    python train.py
-    
-Output:
-    - Trained weights: runs/detect/train/weights/best.pt
-    - Training metrics: runs/detect/train/results.csv
-    - Training plots: runs/detect/train/*.png
-"""
-
+import shutil
+import os
 from ultralytics import YOLO
 
-if __name__ == '__main__':
-    # Initialize YOLOv8 nano model with pretrained ImageNet weights
-    # The 'n' in yolov8n stands for 'nano' - fastest, smallest model
-    # Other options: yolov8s (small), yolov8m (medium), yolov8l (large), yolov8x (extra large)
-    model = YOLO("yolov8n.pt")
-    
-    # Train the model
+def trainInfrared():
+    model = YOLO("yolov8m.pt")
+
     results = model.train(
-        data="data.yaml",           # Dataset configuration file
-        epochs=10,                  # Number of training epochs (full passes through data)
-        imgsz=640,                  # Input image size (will be resized to this)
-        batch=8,                    # Batch size (frames per GPU batch)
-        workers=2,                  # Number of data loading workers
-        device=0                    # GPU device (0 = first GPU, or 'cpu' for CPU)
-        # Optional improvements:
-        # patience=3,               # Early stopping patience (stop if no improvement)
-        # save=True,               # Save training artifacts
-        # amp=True,                # Automatic Mixed Precision (faster training)
-        # hsv_h=0.015,             # HSV hue augmentation
-        # hsv_s=0.7,               # HSV saturation augmentation
-        # hsv_v=0.4,               # HSV value augmentation
+        data="data_ir.yaml",
+        epochs=50,
+        imgsz=640,
+        batch=16,
+        workers=4,
+        device=0,
+        patience=30,
+        name="ir_v2_200video",  # ✅ Otomatik folder naming
     )
     
-    print("Training complete!")
+    # Copy best.pt to models/
+    src = "runs/detect/ir_v2_200video/weights/best.pt"
+    dst = "models/best_ir_v2.pt"
+    os.makedirs("models", exist_ok=True)
+    shutil.copy(src, dst)
+    print(f"✅ Saved: {dst}")
+    
+    return dst
+
+def trainVisible(ir_model_path):
+    model = YOLO(ir_model_path)  # Transfer learning
+
+    results = model.train(
+        data="data_visible.yaml",
+        epochs=30,  # Fine-tune, daha az epoch
+        imgsz=1280,
+        batch=16,
+        workers=4,
+        device=0,
+        patience=30,
+        name="visible_v2_finetuned",  # ✅ Otomatik folder naming
+    )
+    
+    # Copy best.pt
+    src = "runs/detect/visible_v2_finetuned/weights/best.pt"
+    dst = "models/best_visible_v2.pt"
+    os.makedirs("models", exist_ok=True)
+    shutil.copy(src, dst)
+    print(f"✅ Saved: {dst}")
+    
+    return dst
+
+if __name__ == "__main__":
+    print("🟢 IR Training...")
+    ir_model = trainInfrared()
+    
+    print("\n🟢 Visible Fine-tuning...")
+    visible_model = trainVisible(ir_model)
+    
+    print(f"\n✅ Done!")
+    print(f"  IR: {ir_model}")
+    print(f"  Visible: {visible_model}")
