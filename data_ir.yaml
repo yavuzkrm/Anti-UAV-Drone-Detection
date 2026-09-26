@@ -1,0 +1,5 @@
+path: ./datasets
+train: images/train/infrared
+val: images/val/infrared
+nc: 1
+names: ['drone']

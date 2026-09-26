@@ -1,0 +1,5 @@
+path: ./datasets
+train: images/train/visible
+val: images/val/visible
+nc: 1
+names: ['drone']
