@@ -1,4 +1,4 @@
-# Training settings used by train.py
+# Training settings used by train.py (data paths are relative to the repo root)
 # Keys are passed straight to YOLO's model.train(), so names must match its arguments.
 
 # Same for every mode, so joint and per-sensor models are compared fairly
@@ -18,14 +18,14 @@ common:
   close_mosaic: 3     # turn mosaic off for the last 3 epochs
 
 # Only what differs between modes. imgsz must stay the same between train and test
-# (test.py reads it from the saved model, so this is automatic).
+# (evaluate.py reads it from the saved model, so this is automatic).
 modes:
   joint:
-    data: data.yaml
+    data: configs/data.yaml
     imgsz: 960        # keeps small visible drones at ~31px instead of ~21px at 640
   infrared:
-    data: data_ir.yaml
+    data: configs/data_ir.yaml
     imgsz: 640        # native IR resolution, larger only upscales
   visible:
-    data: data_visible.yaml
+    data: configs/data_visible.yaml
     imgsz: 960        # same as joint, so only the training data differs

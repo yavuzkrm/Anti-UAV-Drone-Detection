@@ -9,14 +9,15 @@ Frames without a drone get an empty file (background image).
     -> datasets/labels/{split}/infrared/<recording>_infraredI0000.txt
 
 Example:
-    python yoloformat.py             # train, val and test
-    python yoloformat.py test        # only one split
+    python scripts/convert_labels.py         # train, val and test
+    python scripts/convert_labels.py test    # only one split
 """
 
 import sys
 import json
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]  # repo root, so the script runs from any directory
 SPLITS = ["train", "val", "test"]
 
 # Frame size of each camera, used to normalize pixel boxes
@@ -81,8 +82,8 @@ if __name__ == '__main__':
     splits = sys.argv[1:] or SPLITS
 
     for split in splits:
-        json_root = Path(f"./datasets/videos/{split}_videos")
-        output_root = Path(f"./datasets/labels/{split}")
+        json_root = ROOT / "datasets" / "videos" / f"{split}_videos"
+        output_root = ROOT / "datasets" / "labels" / split
 
         json_pathes = sorted(json_root.rglob("*.json"))
         print(f"[{split}] Found {len(json_pathes)} annotation file(s)")

@@ -11,7 +11,7 @@ Files are not moved - YOLO reads the lists and finds each label by replacing
 /images/ with /labels/ in the path.
 
 Example:
-    python make_splits.py
+    python scripts/make_splits.py
 
     Writes: splits/{train,val,test}.txt                 (infrared + visible)
             splits/{train,val,test}_infrared.txt
@@ -20,8 +20,9 @@ Example:
 
 from pathlib import Path
 
-DATASET_DIR = Path("./datasets/images").resolve()
-SPLIT_DIR = Path("./splits")
+ROOT = Path(__file__).resolve().parents[1]  # repo root, so the script runs from any directory
+DATASET_DIR = ROOT / "datasets" / "images"
+SPLIT_DIR = ROOT / "splits"
 MODALITIES = ["infrared", "visible"]
 
 # Recordings (first 15 chars of the file name) held out for validation.

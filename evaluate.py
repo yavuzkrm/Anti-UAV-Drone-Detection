@@ -8,28 +8,32 @@ imgsz is NOT passed here: every checkpoint remembers the imgsz it was trained
 with, and model.val() / model.predict() use it automatically.
 
 Example:
-    python make_splits.py                     # test lists must exist
-    python test.py                            # all models found in models/
-    python test.py infrared                   # only models/best_infrared.pt
-    python test.py --skip-images              # metrics only, no visualizations
+    python scripts/make_splits.py             # test lists must exist
+    python evaluate.py                        # all models found in models/
+    python evaluate.py infrared               # only models/best_infrared.pt
+    python evaluate.py --skip-images          # metrics only, no visualizations
 """
 
 from ultralytics import YOLO
 from pathlib import Path
 import sys
 
+ROOT = Path(__file__).resolve().parent
+CONFIG_DIR = ROOT / "configs"
+SPLIT_DIR = ROOT / "splits"
+
 # Data yaml for each test set (their 'test:' line points to splits/test*.txt)
 TEST_SETS = {
-    "all": "data.yaml",
-    "infrared": "data_ir.yaml",
-    "visible": "data_visible.yaml",
+    "all": CONFIG_DIR / "data.yaml",
+    "infrared": CONFIG_DIR / "data_ir.yaml",
+    "visible": CONFIG_DIR / "data_visible.yaml",
 }
 
 # Image lists used for the visual check in predict_batch
 TEST_LISTS = {
-    "all": "splits/test.txt",
-    "infrared": "splits/test_infrared.txt",
-    "visible": "splits/test_visible.txt",
+    "all": SPLIT_DIR / "test.txt",
+    "infrared": SPLIT_DIR / "test_infrared.txt",
+    "visible": SPLIT_DIR / "test_visible.txt",
 }
 
 # Which test sets each model is evaluated on.
@@ -40,7 +44,7 @@ MODELS = {
     "visible": ["visible"],
 }
 
-MODELS_DIR = Path("models")
+MODELS_DIR = ROOT / "models"
 
 
 class Test:
@@ -54,7 +58,7 @@ class Test:
         """Validation on one test set"""
         print(f"📊 [{self.mode}] Validating on test set: {set_name} (imgsz={self.imgsz})")
         results = self.model.val(
-            data=TEST_SETS[set_name],
+            data=str(TEST_SETS[set_name]),
             split="test",
             batch=16,
             plots=False,
@@ -144,9 +148,9 @@ if __name__ == '__main__':
         print(f"❌ Unknown mode(s): {unknown} - valid: {list(MODELS)}")
         sys.exit(1)
 
-    missing_lists = [p for p in TEST_LISTS.values() if not Path(p).exists()]
+    missing_lists = [p for p in TEST_LISTS.values() if not p.exists()]
     if missing_lists:
-        print(f"❌ Test lists not found: {missing_lists} - run: python make_splits.py")
+        print(f"❌ Test lists not found: {[str(p) for p in missing_lists]} - run: python scripts/make_splits.py")
         sys.exit(1)
 
     all_results = {}

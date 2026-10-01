@@ -1,0 +1,9 @@
+# Dataset for the joint model (infrared + visible)
+# The lists are written by scripts/make_splits.py (paths relative to this file)
+
+train: ../splits/train.txt
+val: ../splits/val.txt
+test: ../splits/test.txt
+
+nc: 1
+names: ['drone']

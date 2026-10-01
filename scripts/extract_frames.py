@@ -8,8 +8,8 @@ so an interrupted run can simply be restarted.
     -> datasets/images/{split}/infrared/<recording>_infraredI0000.png
 
 Example:
-    python framecut.py               # train, val and test
-    python framecut.py test          # only one split
+    python scripts/extract_frames.py         # train, val and test
+    python scripts/extract_frames.py test    # only one split
 """
 
 import sys
@@ -17,6 +17,7 @@ import cv2
 from datetime import datetime
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]  # repo root, so the script runs from any directory
 SPLITS = ["train", "val", "test"]
 
 
@@ -54,8 +55,8 @@ if __name__ == '__main__':
     splits = sys.argv[1:] or SPLITS
 
     for split in splits:
-        video_root = Path(f"./datasets/videos/{split}_videos")
-        output_root = Path(f"./datasets/images/{split}")
+        video_root = ROOT / "datasets" / "videos" / f"{split}_videos"
+        output_root = ROOT / "datasets" / "images" / split
 
         video_pathes = sorted(video_root.rglob("*.mp4"))
         print(f"[{split}] Found {len(video_pathes)} video(s)")
