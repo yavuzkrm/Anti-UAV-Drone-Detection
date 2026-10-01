@@ -1,0 +1,31 @@
+# Training settings used by train.py
+# Keys are passed straight to YOLO's model.train(), so names must match its arguments.
+
+# Same for every mode, so joint and per-sensor models are compared fairly
+common:
+  model: yolov8m.pt   # COCO-pretrained starting weights
+  epochs: 30
+  patience: 10        # stop if val mAP does not improve for 10 epochs
+  batch: -1           # -1 = AutoBatch (fits ~60% of GPU memory)
+  workers: 4          # default is 8, which can use a lot of RAM on Windows
+  lr0: 0.01
+  lrf: 0.01
+  warmup_epochs: 2
+  hsv_s: 0.5          # IR frames are grayscale, keep color jitter moderate
+  flipud: 0.0         # sky is above ground, vertical flips are unrealistic
+  fliplr: 0.5
+  mosaic: 1.0
+  close_mosaic: 3     # turn mosaic off for the last 3 epochs
+
+# Only what differs between modes. imgsz must stay the same between train and test
+# (test.py reads it from the saved model, so this is automatic).
+modes:
+  joint:
+    data: data.yaml
+    imgsz: 960        # keeps small visible drones at ~31px instead of ~21px at 640
+  infrared:
+    data: data_ir.yaml
+    imgsz: 640        # native IR resolution, larger only upscales
+  visible:
+    data: data_visible.yaml
+    imgsz: 960        # same as joint, so only the training data differs

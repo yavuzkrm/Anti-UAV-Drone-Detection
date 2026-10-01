@@ -1,48 +1,163 @@
 """
-Model Evaluation and Testing Script
+Model Evaluation & Comparison
 
-Evaluates the trained YOLOv8 model on test dataset and generates predictions.
-Outputs metrics and visualization of predictions.
+Evaluates the joint model and the per-sensor models on the untouched test set,
+then prints a comparison table (joint vs separate model, per sensor).
 
-Usage:
-    python test.py
-    
-Output:
-    - Test metrics: mAP50, mAP50-95, precision, recall
-    - Prediction visualizations: runs/test_results/*.jpg
+imgsz is NOT passed here: every checkpoint remembers the imgsz it was trained
+with, and model.val() / model.predict() use it automatically.
+
+Example:
+    python make_splits.py                     # test lists must exist
+    python test.py                            # all models found in models/
+    python test.py infrared                   # only models/best_infrared.pt
+    python test.py --skip-images              # metrics only, no visualizations
 """
 
 from ultralytics import YOLO
-import glob
+from pathlib import Path
+import sys
+
+# Data yaml for each test set (their 'test:' line points to splits/test*.txt)
+TEST_SETS = {
+    "all": "data.yaml",
+    "infrared": "data_ir.yaml",
+    "visible": "data_visible.yaml",
+}
+
+# Image lists used for the visual check in predict_batch
+TEST_LISTS = {
+    "all": "splits/test.txt",
+    "infrared": "splits/test_infrared.txt",
+    "visible": "splits/test_visible.txt",
+}
+
+# Which test sets each model is evaluated on.
+# A per-sensor model never saw the other sensor, so it is only tested on its own.
+MODELS = {
+    "joint": ["all", "infrared", "visible"],
+    "infrared": ["infrared"],
+    "visible": ["visible"],
+}
+
+MODELS_DIR = Path("models")
+
+
+class Test:
+    def __init__(self, mode: str):
+        self.mode = mode
+        self.model = YOLO(MODELS_DIR / f"best_{mode}.pt")
+        # Saved in the checkpoint at training time, used automatically by val/predict
+        self.imgsz = self.model.overrides.get("imgsz")
+
+    def validate(self, set_name):
+        """Validation on one test set"""
+        print(f"📊 [{self.mode}] Validating on test set: {set_name} (imgsz={self.imgsz})")
+        results = self.model.val(
+            data=TEST_SETS[set_name],
+            split="test",
+            batch=16,
+            plots=False,
+            name=f"test_{self.mode}_{set_name}",
+            exist_ok=True,
+        )
+
+        return {
+            "mAP50": results.box.map50,
+            "mAP50-95": results.box.map,
+            "precision": results.box.mp,
+            "recall": results.box.mr
+        }
+
+    def predict_batch(self, set_name, conf=0.25, max_images=50):
+        """Predict a few test images and save visualizations for a visual check"""
+        with open(TEST_LISTS[set_name]) as f:
+            paths = [line.strip() for line in f if line.strip()]
+
+        if not paths:
+            print("❌ No test images found")
+            return 0
+
+        # Take images evenly spread over the list (covers both sensors for "all")
+        step = max(1, len(paths) // max_images)
+        test_images = paths[::step][:max_images]
+
+        print(f"🔍 [{self.mode}] Predicting on {len(test_images)} images...")
+        detected = 0
+        # stream=True yields one result at a time instead of holding all in memory
+        for result in self.model.predict(
+            source=test_images,
+            conf=conf,
+            save=True,
+            name=f"test_predictions_{self.mode}",
+            exist_ok=True,
+            stream=True,
+            verbose=False
+        ):
+            detected += int(len(result.boxes) > 0)
+
+        print(f"   Images with a detection: {detected}/{len(test_images)} "
+              f"(saved to runs/detect/test_predictions_{self.mode})")
+        return detected
+
+    def run(self, skip_images=False):
+        """Evaluate this model on all of its test sets"""
+        metrics = {set_name: self.validate(set_name) for set_name in MODELS[self.mode]}
+
+        if not skip_images:
+            # "all" for the joint model, the model's own sensor otherwise
+            self.predict_batch(MODELS[self.mode][0])
+
+        return metrics
+
+
+def print_results(all_results):
+    """Per-model detail table + joint vs separate comparison"""
+    print("\n" + "=" * 60)
+    print("✅ TEST RESULTS")
+    print("=" * 60)
+    print(f"   {'model':<10}{'set':<10}{'mAP50':>9}{'mAP50-95':>10}{'P':>8}{'R':>8}")
+    for mode, metrics in all_results.items():
+        for set_name, m in metrics.items():
+            print(f"   {mode:<10}{set_name:<10}{m['mAP50']:>9.4f}{m['mAP50-95']:>10.4f}"
+                  f"{m['precision']:>8.4f}{m['recall']:>8.4f}")
+
+    # Comparison only makes sense when the joint model and at least one sensor model exist
+    if "joint" in all_results and len(all_results) > 1:
+        print(f"\n   mAP50 - joint vs separate")
+        print(f"   {'sensor':<10}{'joint':>9}{'separate':>10}")
+        for sensor in ["infrared", "visible"]:
+            if sensor in all_results:
+                joint = all_results["joint"][sensor]["mAP50"]
+                separate = all_results[sensor][sensor]["mAP50"]
+                print(f"   {sensor:<10}{joint:>9.4f}{separate:>10.4f}")
+    print("=" * 60)
+
 
 if __name__ == '__main__':
-    # Load the best trained model
-    model = YOLO("runs/detect/train/weights/best.pt")
-    
-    # Evaluate on test set
-    # This computes metrics like mAP (mean Average Precision) against ground truth labels
-    print("Validating on test set...")
-    results = model.val(data="data.yaml", split="test")
-    
-    # Print evaluation metrics
-    print(f"\n=== Test Results ===")
-    print(f"mAP50 (IoU=0.50):     {results.box.map50:.4f}")  # Precision at IoU threshold 0.50
-    print(f"mAP50-95 (IoU=0.50-0.95): {results.box.map:.4f}")  # Average precision across IoU thresholds
-    
-    # Generate predictions on sample images (first 100 test images)
-    # This shows visual predictions with bounding boxes
-    print("\nGenerating predictions on sample images...")
-    test_images = glob.glob("./datasets/images/test/**/*.png", recursive=True)[:100]
-    
-    if test_images:
-        results = model.predict(
-            source=test_images,           # Images to predict on
-            conf=0.5,                     # Confidence threshold (0-1, only show predictions > 0.5)
-            save=True,                    # Save prediction visualizations
-            save_dir="runs/test_results"  # Output directory for visualizations
-        )
-        print(f"Saved {len(test_images)} prediction visualizations to runs/test_results/")
-    else:
-        print("No test images found. Make sure to process test videos first.")
-    
-    print("Testing complete!")
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    skip_images = "--skip-images" in sys.argv
+
+    modes = args if args else list(MODELS)
+    unknown = [m for m in modes if m not in MODELS]
+    if unknown:
+        print(f"❌ Unknown mode(s): {unknown} - valid: {list(MODELS)}")
+        sys.exit(1)
+
+    missing_lists = [p for p in TEST_LISTS.values() if not Path(p).exists()]
+    if missing_lists:
+        print(f"❌ Test lists not found: {missing_lists} - run: python make_splits.py")
+        sys.exit(1)
+
+    all_results = {}
+    for mode in modes:
+        if not (MODELS_DIR / f"best_{mode}.pt").exists():
+            print(f"⚠️  models/best_{mode}.pt not found - skipping (train it with: python train.py {mode})")
+            continue
+        all_results[mode] = Test(mode).run(skip_images=skip_images)
+
+    if not all_results:
+        print("❌ No trained models found in models/")
+        sys.exit(1)
+
+    print_results(all_results)
