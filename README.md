@@ -1,148 +1,95 @@
 # Anti-UAV Drone Detection
 
-A YOLO-based object detection system for drone detection using the Anti-UAV dataset. Designed for defense industry applications.
-
-## Project Overview
-
-Complete pipeline for drone detection in infrared and visible spectrum:
-- **Video to Frame Conversion**: Extracts frames with tracking
-- **Label Format Conversion**: JSON → YOLO format
-- **Model Training**: YOLOv8 fine-tuning
-- **Testing & Evaluation**: Comprehensive metrics
+A YOLO-based drone detector for the Anti-UAV dataset, trained on infrared and visible video. Designed with defense industry practice in mind: evaluation on unseen recordings, per-sensor reporting, and a joint vs per-sensor model comparison.
 
 ## Dataset
 
 **Anti-UAV Dataset**
-- Infrared (640×512) and Visible (1920×1080) video
-- Ground truth bounding box annotations (JSON)
-- Multi-modal drone detection
+- Infrared (640×512) and visible (1920×1080) video, recorded simultaneously
+- Ground truth bounding boxes per frame (JSON)
+- Test recordings are fully separate from train/val recordings
 
-### Folder Structure
 ```
 datasets/
-├── images/
-│   ├── train/
-│   ├── val/
-│   └── test/
-└── labels/
-    ├── train/
-    ├── val/
-    └── test/
+├── videos/{train,val,test}_videos/<recording>/{infrared,visible}.{mp4,json}
+├── images/{train,val,test}/{infrared,visible}/
+└── labels/{train,val,test}/{infrared,visible}/
 ```
+
+## Problem & Approach
+
+The first version trained on infrared at 640, then fine-tuned the same model on visible frames. Validation looked good, but the test score collapsed. Two causes:
+
+1. **Data leakage in validation** - every recording in the original val folder also appears in train (same day, sky and drone). Val mAP measured memorization, not generalization; the test set uses different recordings.
+2. **Catastrophic forgetting** - fine-tuning only on visible overwrote what the model had learned on infrared.
+
+Fixes:
+- **Recording-based split** (`make_splits.py`): whole recordings are held out for validation, so val mAP reflects unseen flights.
+- **Three models compared on the same splits**: one joint model (infrared + visible together, no forgetting) and one model per sensor.
+- **Per-sensor test scores**, so a weak sensor is not hidden in a combined number.
 
 ## Pipeline
 
-### 1. Video to Frame Extraction
 ```bash
-python framecut.py
-```
-Converts MP4 videos to PNG frames, preserves directory hierarchy.
+# 1. Prepare data (no argument = train, val and test)
+python framecut.py          # MP4 -> PNG frames
+python yoloformat.py        # JSON -> YOLO labels
+python make_splits.py       # recording-based image lists in splits/
 
-### 2. JSON to YOLO Conversion
-```bash
-python yoloformat.py
-```
-Transforms Anti-UAV JSON annotations to normalized YOLO format.
-- Handles infrared (640×512) and visible (1920×1080) dimensions
-- Supports empty frames (no drone)
+# 2. Train (settings in train.yaml)
+python train.py joint
+python train.py infrared
+python train.py visible
 
-### 3. Model Training
-```bash
-python train.py
-```
-Fine-tunes YOLOv8n on drone detection.
-
-**Configuration**:
-- Model: YOLOv8n
-- Epochs: 10
-- Batch: 8
-- Input: 640×640
-
-### 4. Testing & Inference
-```bash
+# 3. Test all trained models and compare
 python test.py
 ```
-Evaluates model on test set, generates predictions.
+
+`framecut.py` and `yoloformat.py` also accept a single split, e.g. `python framecut.py test`.
+
+## Configuration
+
+**train.yaml** - training settings. `common` is shared by every mode, `modes` holds only what differs:
+
+| Mode | Data | imgsz |
+|------|------|-------|
+| joint | `data.yaml` | 960 |
+| infrared | `data_ir.yaml` | 640 (native resolution) |
+| visible | `data_visible.yaml` | 960 |
+
+Epochs and batch can be overridden from the command line: `python train.py visible 50 8`.
+
+**imgsz**: YOLO scales each image so its long side equals imgsz, keeping the aspect ratio. At 640 a typical visible drone shrinks to ~21 px; at 960 it stays ~31 px. Test always uses the imgsz saved in the model, so train and test cannot get out of sync.
 
 ## Results
 
-### Test Performance
-| Metric | Score |
-|--------|-------|
-| **mAP50** | 87.5% |
-| **mAP50-95** | 49.2% |
-| **Precision** | 84% |
-| **Recall** | 80% |
+Pending - fill in after training:
 
-**Data**: 5 videos (10,000 frames)  
-**Status**: Proof-of-concept validation ✓
+| Sensor | Joint model mAP50 | Per-sensor model mAP50 |
+|--------|-------------------|------------------------|
+| Infrared | - | - |
+| Visible | - | - |
+
+*Earlier proof of concept (YOLOv8n, 5 videos, 10 epochs): mAP50 87.5%, mAP50-95 49.2%. Not comparable with the current setup.*
 
 ## Installation
 
 ```bash
-# Requirements
 pip install opencv-python ultralytics torch torchvision
-
-# Setup
-git clone <repository>
-cd Anti-UAV-Drone-Detection
 ```
-
-## Configuration
-
-**config.py** - Dataset split
-```python
-train_or_val_folder = "train"  # or "val", "test"
-video_folder = "train_videos"
-```
-
-**data.yaml** - YOLO configuration
-```yaml
-path: ./datasets
-train: images/train
-val: images/val
-nc: 1
-names: ['drone']
-```
-
-## Usage Workflow
-
-```bash
-# 1. Prepare data
-python framecut.py
-python yoloformat.py
-
-# 2. Train
-python train.py
-
-# 3. Test
-python test.py
-```
-
-## Technical Details
-
-### Key Features
-- Multi-modal detection (IR + visible)
-- Dimension-aware normalization (640×512 vs 1920×1080)
-- Recursive dataset traversal
-- Cross-platform compatibility (Windows/Linux)
-- Empty frame handling
-
-### Architecture
-- Framework: YOLOv8 (Ultralytics)
-- Backbone: CSP Darknet
-- Input: 640×640 (auto-scaled)
-- Output: Bounding box predictions
 
 ## File Structure
 ```
 Anti-UAV-Drone-Detection/
-├── framecut.py           # Video extraction
-├── yoloformat.py         # Label conversion
-├── train.py              # Training script
-├── test.py               # Evaluation script
-├── config.py             # Configuration
-├── data.yaml             # Dataset config
+├── framecut.py           # Video -> frames
+├── yolo_format.py         # JSON -> YOLO labels
+├── make_splits.py        # Recording-based train/val/test lists
+├── train.py              # Training (joint / infrared / visible)
+├── train.yaml            # Training settings
+├── test.py               # Evaluation and model comparison
+├── data.yaml             # Dataset: infrared + visible
+├── data_ir.yaml          # Dataset: infrared only
+├── data_visible.yaml     # Dataset: visible only
 └── README.md
 ```
 
@@ -155,12 +102,11 @@ Anti-UAV-Drone-Detection/
 
 ## Future Work
 
-- [ ] Scale to 100+ videos
-- [ ] Larger models (YOLOv8m/l)
+- [ ] False alarm rate and recall by drone size
+- [ ] Drone tracking module (temporal consistency)
+- [ ] Decision-level fusion of infrared and visible
+- [ ] ONNX/TensorRT optimization and FPS measurement
 - [ ] Multi-class detection (drone types)
-- [ ] Real-time streaming inference
-- [ ] ONNX/TensorRT optimization
-- [ ] Drone tracking module
 
 ## References
 
@@ -172,7 +118,3 @@ Anti-UAV-Drone-Detection/
 **Yavuz Kerem**  
 Computer Engineering, Ankara University  
 Target: Defense Industry
-
----
-
-**Status**: MVP Complete | **Last Updated**: September 2026
