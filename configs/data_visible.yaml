@@ -1,0 +1,9 @@
+# Dataset for the visible-only model
+# The lists are written by scripts/make_splits.py (paths relative to this file)
+
+train: ../splits/train_visible.txt
+val: ../splits/val_visible.txt
+test: ../splits/test_visible.txt
+
+nc: 1
+names: ['drone']

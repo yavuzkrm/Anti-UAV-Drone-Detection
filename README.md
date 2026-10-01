@@ -24,7 +24,7 @@ The first version trained on infrared at 640, then fine-tuned the same model on 
 2. **Catastrophic forgetting** - fine-tuning only on visible overwrote what the model had learned on infrared.
 
 Fixes:
-- **Recording-based split** (`make_splits.py`): whole recordings are held out for validation, so val mAP reflects unseen flights.
+- **Recording-based split** (`scripts/make_splits.py`): whole recordings are held out for validation, so val mAP reflects unseen flights.
 - **Three models compared on the same splits**: one joint model (infrared + visible together, no forgetting) and one model per sensor.
 - **Per-sensor test scores**, so a weak sensor is not hidden in a combined number.
 
@@ -32,34 +32,34 @@ Fixes:
 
 ```bash
 # 1. Prepare data (no argument = train, val and test)
-python framecut.py          # MP4 -> PNG frames
-python yoloformat.py        # JSON -> YOLO labels
-python make_splits.py       # recording-based image lists in splits/
+python scripts/extract_frames.py    # MP4 -> PNG frames
+python scripts/convert_labels.py    # JSON -> YOLO labels
+python scripts/make_splits.py       # recording-based image lists in splits/
 
-# 2. Train (settings in train.yaml)
+# 2. Train (settings in configs/train.yaml)
 python train.py joint
 python train.py infrared
 python train.py visible
 
-# 3. Test all trained models and compare
-python test.py
+# 3. Evaluate all trained models on the test set and compare
+python evaluate.py
 ```
 
-`framecut.py` and `yoloformat.py` also accept a single split, e.g. `python framecut.py test`.
+`extract_frames.py` and `convert_labels.py` also accept a single split, e.g. `python scripts/extract_frames.py test`. All paths are resolved from the repo root, so the scripts can be run from any directory.
 
 ## Configuration
 
-**train.yaml** - training settings. `common` is shared by every mode, `modes` holds only what differs:
+**configs/train.yaml** - training settings. `common` is shared by every mode, `modes` holds only what differs:
 
 | Mode | Data | imgsz |
 |------|------|-------|
-| joint | `data.yaml` | 960 |
-| infrared | `data_ir.yaml` | 640 (native resolution) |
-| visible | `data_visible.yaml` | 960 |
+| joint | `configs/data.yaml` | 960 |
+| infrared | `configs/data_ir.yaml` | 640 (native resolution) |
+| visible | `configs/data_visible.yaml` | 960 |
 
 Epochs and batch can be overridden from the command line: `python train.py visible 50 8`.
 
-**imgsz**: YOLO scales each image so its long side equals imgsz, keeping the aspect ratio. At 640 a typical visible drone shrinks to ~21 px; at 960 it stays ~31 px. Test always uses the imgsz saved in the model, so train and test cannot get out of sync.
+**imgsz**: YOLO scales each image so its long side equals imgsz, keeping the aspect ratio. At 640 a typical visible drone shrinks to ~21 px; at 960 it stays ~31 px. Evaluation always uses the imgsz saved in the model, so train and test cannot get out of sync.
 
 ## Results
 
@@ -75,22 +75,31 @@ Pending - fill in after training:
 ## Installation
 
 ```bash
-pip install opencv-python ultralytics torch torchvision
+pip install -r requirements.txt
 ```
+
+For GPU training, install the CUDA build of PyTorch first, following [pytorch.org](https://pytorch.org/get-started/locally/).
 
 ## File Structure
 ```
 Anti-UAV-Drone-Detection/
-├── framecut.py           # Video -> frames
-├── yolo_format.py         # JSON -> YOLO labels
-├── make_splits.py        # Recording-based train/val/test lists
-├── train.py              # Training (joint / infrared / visible)
-├── train.yaml            # Training settings
-├── test.py               # Evaluation and model comparison
-├── data.yaml             # Dataset: infrared + visible
-├── data_ir.yaml          # Dataset: infrared only
-├── data_visible.yaml     # Dataset: visible only
+├── configs/
+│   ├── train.yaml            # Training settings
+│   ├── data.yaml             # Dataset: infrared + visible
+│   ├── data_ir.yaml          # Dataset: infrared only
+│   └── data_visible.yaml     # Dataset: visible only
+├── scripts/
+│   ├── extract_frames.py     # Video -> frames
+│   ├── convert_labels.py     # JSON -> YOLO labels
+│   └── make_splits.py        # Recording-based train/val/test lists
+├── train.py                  # Training (joint / infrared / visible)
+├── evaluate.py               # Test set evaluation and model comparison
+├── requirements.txt
+├── LICENSE
 └── README.md
+```
+
+Generated, not tracked by git: `datasets/` (frames and labels), `splits/` (image lists), `models/` (best weights), `runs/` (Ultralytics outputs).
 ```
 
 ## Defense Applications
@@ -116,5 +125,8 @@ Anti-UAV-Drone-Detection/
 ## Author
 
 **Yavuz Kerem**  
-Computer Engineering, Ankara University  
-Target: Defense Industry
+Computer Engineering, Ankara University
+
+## License
+
+MIT - see [LICENSE](LICENSE).

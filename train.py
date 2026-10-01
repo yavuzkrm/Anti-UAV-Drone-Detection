@@ -1,14 +1,14 @@
 """
 YOLO training for the drone detector.
 
-Three modes, all defined in train.yaml:
+Three modes, all defined in configs/train.yaml:
     joint     - one model on infrared + visible frames
     infrared  - infrared-only model
     visible   - visible-only model
 Shared settings live under 'common', per-mode differences under 'modes'.
 
 Example:
-    python make_splits.py            # build splits/*.txt first
+    python scripts/make_splits.py    # build splits/*.txt first
     python train.py joint
     python train.py infrared 50      # override epochs
     python train.py visible 30 8     # override epochs and batch
@@ -20,12 +20,14 @@ import yaml
 from ultralytics import YOLO
 from pathlib import Path
 
-CONFIG_FILE = "train.yaml"
+ROOT = Path(__file__).resolve().parent
+CONFIG_FILE = ROOT / "configs" / "train.yaml"
+MODELS_DIR = ROOT / "models"
 
 
 class Trainer:
     def __init__(self):
-        self.models_dir = Path("models")
+        self.models_dir = MODELS_DIR
         self.models_dir.mkdir(exist_ok=True)
 
         with open(CONFIG_FILE) as file:
@@ -40,6 +42,7 @@ class Trainer:
         if batch is not None:
             params["batch"] = batch
 
+        params["data"] = str(ROOT / params["data"])
         model = YOLO(params.pop("model"))
 
         try:
@@ -73,11 +76,13 @@ if __name__ == "__main__":
         print(f"❌ Unknown mode: {train_mode} - valid: {list(modes)}")
         sys.exit(1)
 
-    # The data yaml's train list must exist (written by make_splits.py)
-    with open(modes[train_mode]["data"]) as file:
-        train_list = yaml.safe_load(file)["train"]
-    if not Path(train_list).exists():
-        print(f"❌ {train_list} not found - run: python make_splits.py")
+    # The data yaml's train list must exist (written by make_splits.py).
+    # Its path is relative to the data yaml itself.
+    data_file = ROOT / modes[train_mode]["data"]
+    with open(data_file) as file:
+        train_list = (data_file.parent / yaml.safe_load(file)["train"]).resolve()
+    if not train_list.exists():
+        print(f"❌ {train_list} not found - run: python scripts/make_splits.py")
         sys.exit(1)
 
     model_path = trainer.train(train_mode=train_mode, epochs=epochs, batch=batch)

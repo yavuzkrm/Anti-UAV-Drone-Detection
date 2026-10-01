@@ -22,3 +22,6 @@ __pycache__/
 *.swp
 # Generated image lists (make_splits.py)
 splits/
+
+# Trained weights (train.py)
+models/
