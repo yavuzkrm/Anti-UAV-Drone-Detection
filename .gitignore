@@ -25,3 +25,6 @@ splits/
 
 # Trained weights (train.py)
 models/
+
+# README figures
+!docs/*.jpg
