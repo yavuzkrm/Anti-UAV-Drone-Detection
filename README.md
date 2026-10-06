@@ -63,12 +63,45 @@ Epochs and batch can be overridden from the command line: `python train.py visib
 
 ## Results
 
-Pending - fill in after training:
+Test set: 15 recordings (14,348 frames per sensor) that never appear in training or validation.
 
 | Sensor | Joint model mAP50 | Per-sensor model mAP50 |
 |--------|-------------------|------------------------|
-| Infrared | - | - |
-| Visible | - | - |
+| Infrared | 0.552 | **0.686** |
+| Visible | **0.911** | 0.753 |
+
+Full test metrics (`python evaluate.py`):
+
+| Model | Test set | mAP50 | mAP50-95 | Precision | Recall |
+|-------|----------|------:|---------:|----------:|-------:|
+| joint | infrared + visible | 0.730 | 0.408 | 0.907 | 0.643 |
+| joint | infrared | 0.552 | 0.304 | 0.849 | 0.485 |
+| joint | visible | 0.911 | 0.513 | 0.943 | 0.818 |
+| infrared | infrared | 0.686 | 0.372 | 0.862 | 0.613 |
+| visible | visible | 0.753 | 0.427 | 0.945 | 0.691 |
+
+Training runs (YOLOv8m, COCO-pretrained). Epochs were capped below the config's 30 for time. Ultralytics accumulates gradients to a nominal batch of 64, so the different batch sizes have little effect:
+
+| Model | imgsz | Batch | Epochs run (max) | Best val mAP50 |
+|-------|------:|------:|-----------------:|---------------:|
+| infrared | 640 | 8 | 14 (15) | 0.994 |
+| visible | 960 | 2 | 20 (30) | 0.992 |
+| joint | 960 | 2 | 16 (30) | 0.993 |
+
+### Findings
+
+- **No single winner: the best model depends on the sensor.** On visible, the joint model is clearly better (+15.8 mAP50): the extra infrared frames act as more training data. On infrared it is clearly worse (−13.4 mAP50), even though it trained for more epochs than the infrared-only model. Visible frames dominate what the joint model learns, at the cost of infrared. Note that the joint model also sees infrared at 960 (upscaled 1.5×), while the infrared model uses the native 640, which may contribute.
+- **Practical choice:** the joint model for the visible camera, the infrared-only model for the thermal camera. The [tracking project](https://github.com/yavuzkrm/Anti-UAV-Drone-Tracking) uses the infrared-only model.
+- **Validation ≈ 0.99, test 0.55-0.91: a generalization gap, not memorization.** Validation recordings are also unseen by the model and still score ~0.99, so the model does not just memorize training images. The gap comes from conditions that are rare in training. Infrared is hit hardest.
+
+### Failure analysis (infrared)
+
+Per test recording, the infrared model's recall varies widely: it finds the drone (IoU > 0.3, any score) in 96-100% of frames on every validation recording, but on test anywhere from 19% (`1_6`) to 100% (`124000_1_1`). The failing recordings share one condition: **the drone flies in front of buildings**, where it blends into a bright, cluttered background. Against open sky it is detected reliably.
+
+![Failure cases: drone in front of buildings vs open sky](docs/failure_cases.jpg)
+*White: ground truth, orange: detections with score ≥ 0.1. Infrared model.*
+
+Next steps this points to: more training frames with cluttered (building, tree) backgrounds, hard-negative mining on the false positives, and longer training.
 
 *Earlier proof of concept (YOLOv8n, 5 videos, 10 epochs): mAP50 87.5%, mAP50-95 49.2%. Not comparable with the current setup.*
 
@@ -100,7 +133,6 @@ Anti-UAV-Drone-Detection/
 ```
 
 Generated, not tracked by git: `datasets/` (frames and labels), `splits/` (image lists), `models/` (best weights), `runs/` (Ultralytics outputs).
-```
 
 ## Defense Applications
 
@@ -112,7 +144,7 @@ Generated, not tracked by git: `datasets/` (frames and labels), `splits/` (image
 ## Future Work
 
 - [ ] False alarm rate and recall by drone size
-- [ ] Drone tracking module (temporal consistency)
+- [x] Drone tracking module: [Anti-UAV-Drone-Tracking](https://github.com/yavuzkrm/Anti-UAV-Drone-Tracking) (Kalman Filter vs ByteTrack)
 - [ ] Decision-level fusion of infrared and visible
 - [ ] ONNX/TensorRT optimization and FPS measurement
 - [ ] Multi-class detection (drone types)
