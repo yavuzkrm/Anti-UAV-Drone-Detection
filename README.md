@@ -153,6 +153,7 @@ Generated, not tracked by git: `datasets/` (frames and labels), `splits/` (image
 
 - Ultralytics YOLOv8: https://github.com/ultralytics/ultralytics
 - YOLO: https://arxiv.org/abs/2301.04335
+- Jiang et al., *Anti-UAV: A Large-Scale Benchmark for Vision-based UAV Tracking*, IEEE TMM 2021. [arXiv:2101.08466](https://arxiv.org/abs/2101.08466)
 
 ## Author
 
