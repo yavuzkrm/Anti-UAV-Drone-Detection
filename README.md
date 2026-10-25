@@ -1,13 +1,13 @@
 # Anti-UAV Drone Detection
 
-A YOLO-based drone detector for the Anti-UAV dataset, trained on infrared and visible video. Designed with defense industry practice in mind: evaluation on unseen recordings, per-sensor reporting, and a joint vs per-sensor model comparison.
+YOLOv8 drone detector trained on the Anti-UAV dataset (infrared and visible video). Models are tested on recordings they never saw during training, and results are reported separately for each sensor. I also compare one joint model against one model per sensor.
 
 ## Dataset
 
-**Anti-UAV Dataset**
-- Infrared (640×512) and visible (1920×1080) video, recorded simultaneously
-- Ground truth bounding boxes per frame (JSON)
-- Test recordings are fully separate from train/val recordings
+[Anti-UAV](https://anti-uav.github.io/) dataset:
+- Infrared (640×512) and visible (1920×1080) video, recorded at the same time
+- One bounding box per frame (JSON)
+- Test recordings are separate from the train/val recordings
 
 ```
 datasets/
@@ -16,17 +16,17 @@ datasets/
 └── labels/{train,val,test}/{infrared,visible}/
 ```
 
-## Problem & Approach
+## Problem and approach
 
-The first version trained on infrared at 640, then fine-tuned the same model on visible frames. Validation looked good, but the test score collapsed. Two causes:
+My first version trained on infrared at 640 and then fine-tuned the same model on visible frames. Validation scores were high, but the test score dropped a lot. There were two reasons:
 
-1. **Data leakage in validation** - every recording in the original val folder also appears in train (same day, sky and drone). Val mAP measured memorization, not generalization; the test set uses different recordings.
-2. **Catastrophic forgetting** - fine-tuning only on visible overwrote what the model had learned on infrared.
+1. **Data leakage in validation.** Every recording in the original val folder is also in train (same day, same sky, same drone). So val mAP was measuring memorization. The test set uses different recordings.
+2. **Catastrophic forgetting.** Fine-tuning only on visible frames overwrote what the model had learned on infrared.
 
-Fixes:
-- **Recording-based split** (`scripts/make_splits.py`): whole recordings are held out for validation, so val mAP reflects unseen flights.
-- **Three models compared on the same splits**: one joint model (infrared + visible together, no forgetting) and one model per sensor.
-- **Per-sensor test scores**, so a weak sensor is not hidden in a combined number.
+What I changed:
+- **Split by recording** (`scripts/make_splits.py`). Whole recordings are kept out for validation, so val mAP is measured on flights the model has not seen.
+- **Three models on the same splits:** one joint model (infrared + visible together, so nothing is forgotten) and one model per sensor.
+- **Test scores per sensor**, so a weak sensor does not disappear inside a combined number.
 
 ## Pipeline
 
@@ -41,15 +41,15 @@ python train.py joint
 python train.py infrared
 python train.py visible
 
-# 3. Evaluate all trained models on the test set and compare
+# 3. Evaluate all trained models on the test set
 python evaluate.py
 ```
 
-`extract_frames.py` and `convert_labels.py` also accept a single split, e.g. `python scripts/extract_frames.py test`. All paths are resolved from the repo root, so the scripts can be run from any directory.
+`extract_frames.py` and `convert_labels.py` can also take a single split, for example `python scripts/extract_frames.py test`. Paths are resolved from the repo root, so you can run the scripts from any directory.
 
 ## Configuration
 
-**configs/train.yaml** - training settings. `common` is shared by every mode, `modes` holds only what differs:
+`configs/train.yaml` holds the training settings. `common` is shared by all modes and `modes` only contains what is different:
 
 | Mode | Data | imgsz |
 |------|------|-------|
@@ -57,13 +57,13 @@ python evaluate.py
 | infrared | `configs/data_ir.yaml` | 640 (native resolution) |
 | visible | `configs/data_visible.yaml` | 960 |
 
-Epochs and batch can be overridden from the command line: `python train.py visible 50 8`.
+You can override epochs and batch size from the command line: `python train.py visible 50 8`.
 
-**imgsz**: YOLO scales each image so its long side equals imgsz, keeping the aspect ratio. At 640 a typical visible drone shrinks to ~21 px; at 960 it stays ~31 px. Evaluation always uses the imgsz saved in the model, so train and test cannot get out of sync.
+About imgsz: YOLO resizes each image so its long side equals imgsz and keeps the aspect ratio. At 640 a typical drone in a visible frame becomes about 21 px, at 960 it stays about 31 px. Evaluation reads the imgsz saved in the model, so training and testing always use the same value.
 
 ## Results
 
-Test set: 15 recordings (14,348 frames per sensor) that never appear in training or validation.
+Test set: 15 recordings (14,348 frames per sensor), not used in training or validation.
 
 | Sensor | Joint model mAP50 | Per-sensor model mAP50 |
 |--------|-------------------|------------------------|
@@ -80,7 +80,7 @@ Full test metrics (`python evaluate.py`):
 | infrared | infrared | 0.686 | 0.372 | 0.862 | 0.613 |
 | visible | visible | 0.753 | 0.427 | 0.945 | 0.691 |
 
-Training runs (YOLOv8m, COCO-pretrained). Epochs were capped below the config's 30 for time. Ultralytics accumulates gradients to a nominal batch of 64, so the different batch sizes have little effect:
+Training runs (YOLOv8m, COCO-pretrained). I stopped training before the 30 epochs in the config because of time. Ultralytics accumulates gradients up to a nominal batch of 64, so the different batch sizes do not change much:
 
 | Model | imgsz | Batch | Epochs run (max) | Best val mAP50 |
 |-------|------:|------:|-----------------:|---------------:|
@@ -90,20 +90,20 @@ Training runs (YOLOv8m, COCO-pretrained). Epochs were capped below the config's 
 
 ### Findings
 
-- **No single winner: the best model depends on the sensor.** On visible, the joint model is clearly better (+15.8 mAP50): the extra infrared frames act as more training data. On infrared it is clearly worse (−13.4 mAP50), even though it trained for more epochs than the infrared-only model. Visible frames dominate what the joint model learns, at the cost of infrared. Note that the joint model also sees infrared at 960 (upscaled 1.5×), while the infrared model uses the native 640, which may contribute.
-- **Practical choice:** the joint model for the visible camera, the infrared-only model for the thermal camera. The [tracking project](https://github.com/yavuzkrm/Anti-UAV-Drone-Tracking) uses the infrared-only model.
-- **Validation ≈ 0.99, test 0.55-0.91: a generalization gap, not memorization.** Validation recordings are also unseen by the model and still score ~0.99, so the model does not just memorize training images. The gap comes from conditions that are rare in training. Infrared is hit hardest.
+- **The best model depends on the sensor.** On visible, the joint model is better by 15.8 mAP50 points, because the infrared frames work as extra training data. On infrared it is worse by 13.4 points, even though it trained for more epochs than the infrared-only model. The visible frames dominate what the joint model learns. One more difference: the joint model sees infrared images at 960 (upscaled 1.5×), while the infrared model uses the native 640. This may also play a role.
+- **In practice:** use the joint model for the visible camera and the infrared-only model for the thermal camera. The [tracking project](https://github.com/yavuzkrm/Anti-UAV-Drone-Tracking) uses the infrared-only model.
+- **Val is about 0.99, test is 0.55-0.91.** The val recordings are also unseen and still score about 0.99, so the model is not just memorizing training images. The gap comes from conditions that are rare in the training data, and infrared suffers the most.
 
 ### Failure analysis (infrared)
 
-Per test recording, the infrared model's recall varies widely: it finds the drone (IoU > 0.3, any score) in 96-100% of frames on every validation recording, but on test anywhere from 19% (`1_6`) to 100% (`124000_1_1`). The failing recordings share one condition: **the drone flies in front of buildings**, where it blends into a bright, cluttered background. Against open sky it is detected reliably.
+Recall of the infrared model changes a lot between test recordings. On every val recording it finds the drone (IoU > 0.3, any score) in 96-100% of frames. On test it goes from 19% (`1_6`) to 100% (`124000_1_1`). The bad recordings have one thing in common: **the drone flies in front of buildings** and blends into the bright, busy background. Against open sky it is detected reliably.
 
 ![Failure cases: drone in front of buildings vs open sky](docs/failure_cases.jpg)
 *White: ground truth, orange: detections with score ≥ 0.1. Infrared model.*
 
-Next steps this points to: more training frames with cluttered (building, tree) backgrounds, hard-negative mining on the false positives, and longer training.
+Possible next steps: more training frames with cluttered backgrounds (buildings, trees), hard-negative mining on the false positives, and longer training.
 
-*Earlier proof of concept (YOLOv8n, 5 videos, 10 epochs): mAP50 87.5%, mAP50-95 49.2%. Not comparable with the current setup.*
+*An earlier proof of concept (YOLOv8n, 5 videos, 10 epochs) reached mAP50 87.5% and mAP50-95 49.2%. That setup is not comparable to the current one.*
 
 ## Installation
 
@@ -111,9 +111,9 @@ Next steps this points to: more training frames with cluttered (building, tree) 
 pip install -r requirements.txt
 ```
 
-For GPU training, install the CUDA build of PyTorch first, following [pytorch.org](https://pytorch.org/get-started/locally/).
+For GPU training, first install the CUDA build of PyTorch from [pytorch.org](https://pytorch.org/get-started/locally/).
 
-## File Structure
+## File structure
 ```
 Anti-UAV-Drone-Detection/
 ├── configs/
@@ -132,21 +132,14 @@ Anti-UAV-Drone-Detection/
 └── README.md
 ```
 
-Generated, not tracked by git: `datasets/` (frames and labels), `splits/` (image lists), `models/` (best weights), `runs/` (Ultralytics outputs).
+Not tracked by git (generated): `datasets/` (frames and labels), `splits/` (image lists), `models/` (best weights), `runs/` (Ultralytics outputs).
 
-## Defense Applications
-
-- Autonomous drone detection systems
-- Surveillance infrastructure enhancement
-- Real-time threat assessment
-- Multi-spectrum analysis (IR + visible)
-
-## Future Work
+## Future work
 
 - [ ] False alarm rate and recall by drone size
-- [x] Drone tracking module: [Anti-UAV-Drone-Tracking](https://github.com/yavuzkrm/Anti-UAV-Drone-Tracking) (Kalman Filter vs ByteTrack)
+- [x] Tracking module: [Anti-UAV-Drone-Tracking](https://github.com/yavuzkrm/Anti-UAV-Drone-Tracking) (Kalman Filter vs ByteTrack)
 - [ ] Decision-level fusion of infrared and visible
-- [ ] ONNX/TensorRT optimization and FPS measurement
+- [ ] ONNX/TensorRT export and FPS measurement
 - [ ] Multi-class detection (drone types)
 
 ## References
@@ -157,9 +150,8 @@ Generated, not tracked by git: `datasets/` (frames and labels), `splits/` (image
 
 ## Author
 
-**Yavuz Kerem**  
-Computer Engineering, Ankara University
+Yavuz Kerem Ataç, Computer Engineering, Ankara University
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+[MIT](LICENSE)
