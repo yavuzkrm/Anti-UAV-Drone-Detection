@@ -125,6 +125,8 @@ Anti-UAV-Drone-Detection/
 │   ├── extract_frames.py     # Video -> frames
 │   ├── convert_labels.py     # JSON -> YOLO labels
 │   └── make_splits.py        # Recording-based train/val/test lists
+├── docs/
+│   └── failure_cases.jpg     # Figure used in the failure analysis
 ├── train.py                  # Training (joint / infrared / visible)
 ├── evaluate.py               # Test set evaluation and model comparison
 ├── requirements.txt
