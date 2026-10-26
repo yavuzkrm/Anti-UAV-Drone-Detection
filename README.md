@@ -24,9 +24,9 @@ My first version trained on infrared at 640 and then fine-tuned the same model o
 2. **Catastrophic forgetting.** Fine-tuning only on visible frames overwrote what the model had learned on infrared.
 
 What I changed:
-- **Split by recording** (`scripts/make_splits.py`). Whole recordings are kept out for validation, so val mAP is measured on flights the model has not seen.
-- **Three models on the same splits:** one joint model (infrared + visible together, so nothing is forgotten) and one model per sensor.
-- **Test scores per sensor**, so a weak sensor does not disappear inside a combined number.
+- Split by recording (`scripts/make_splits.py`). Whole recordings are kept out for validation, so val mAP is measured on flights the model has not seen.
+- Train three models on the same splits: one joint model (infrared + visible together, so nothing is forgotten) and one model per sensor.
+- Report test scores per sensor, so a weak sensor does not disappear inside a combined number.
 
 ## Pipeline
 
@@ -90,9 +90,9 @@ Training runs (YOLOv8m, COCO-pretrained). I stopped training before the 30 epoch
 
 ### Findings
 
-- **The best model depends on the sensor.** On visible, the joint model is better by 15.8 mAP50 points, because the infrared frames work as extra training data. On infrared it is worse by 13.4 points, even though it trained for more epochs than the infrared-only model. The visible frames dominate what the joint model learns. One more difference: the joint model sees infrared images at 960 (upscaled 1.5×), while the infrared model uses the native 640. This may also play a role.
-- **In practice:** use the joint model for the visible camera and the infrared-only model for the thermal camera. The [tracking project](https://github.com/yavuzkrm/Anti-UAV-Drone-Tracking) uses the infrared-only model.
-- **Val is about 0.99, test is 0.55-0.91.** The val recordings are also unseen and still score about 0.99, so the model is not just memorizing training images. The gap comes from conditions that are rare in the training data, and infrared suffers the most.
+- The best model depends on the sensor. On visible, the joint model is better by 15.8 mAP50 points, because the infrared frames work as extra training data. On infrared it is worse by 13.4 points, even though it trained for more epochs than the infrared-only model. The visible frames dominate what the joint model learns. Resolution may also play a role: the joint model sees infrared images at 960 (upscaled 1.5×), the infrared model at the native 640.
+- In practice, use the joint model for the visible camera and the infrared-only model for the thermal camera. The [tracking project](https://github.com/yavuzkrm/Anti-UAV-Drone-Tracking) uses the infrared-only model.
+- Val is about 0.99, test is 0.55-0.91. The val recordings are unseen too, so the model is not just memorizing training images. The gap comes from conditions that are rare in the training data, and infrared suffers the most.
 
 ### Failure analysis (infrared)
 
@@ -114,6 +114,7 @@ pip install -r requirements.txt
 For GPU training, first install the CUDA build of PyTorch from [pytorch.org](https://pytorch.org/get-started/locally/).
 
 ## File structure
+
 ```
 Anti-UAV-Drone-Detection/
 ├── configs/
