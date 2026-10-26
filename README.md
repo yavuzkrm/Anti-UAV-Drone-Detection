@@ -84,7 +84,7 @@ Training runs (YOLOv8m, COCO-pretrained). I stopped training before the 30 epoch
 
 | Model | imgsz | Batch | Epochs run (max) | Best val mAP50 |
 |-------|------:|------:|-----------------:|---------------:|
-| infrared | 640 | 8 | 14 (15) | 0.994 |
+| infrared | 640 | 8 | 15 (15) | 0.989 |
 | visible | 960 | 2 | 20 (30) | 0.992 |
 | joint | 960 | 2 | 16 (30) | 0.993 |
 
@@ -148,7 +148,6 @@ Not tracked by git (generated): `datasets/` (frames and labels), `splits/` (imag
 ## References
 
 - Ultralytics YOLOv8: https://github.com/ultralytics/ultralytics
-- YOLO: https://arxiv.org/abs/2301.04335
 - Jiang et al., *Anti-UAV: A Large-Scale Benchmark for Vision-based UAV Tracking*, IEEE TMM 2021. [arXiv:2101.08466](https://arxiv.org/abs/2101.08466)
 
 ## Author
